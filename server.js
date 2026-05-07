@@ -579,10 +579,8 @@ app.post('/api/payments', async (req, res) => {
 
 const PORT = process.env.PORT || 5001;
 
-if (process.env.VERCEL !== "1") {
-  app.listen(PORT, () => {
-    console.log(`✅ Server running on port ${PORT}`);
-  });
-}
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
 export default app;
