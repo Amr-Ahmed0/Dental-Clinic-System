@@ -101,7 +101,7 @@ export default function AuthOverlay({ onLogin }: Props) {
       <div className="w-full max-w-[460px] mx-auto p-4 relative z-10">
         <div className="login-card">
           {/* Server status */}
-          <div style={{
+          {/* <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem',
             marginBottom: '.75rem', fontSize: '.75rem', fontWeight: 600,
             color: serverOnline === true ? '#10b981' : serverOnline === false ? '#ef4444' : '#9ca3af',
@@ -110,7 +110,7 @@ export default function AuthOverlay({ onLogin }: Props) {
             {serverOnline === true ? 'Backend connected (port 5001)' :
              serverOnline === false ? 'Backend offline — start your server' :
              'Checking server…'}
-          </div>
+          </div> */}
 
           <div className="text-center mb-7">
             <div style={{ fontSize: '3.5rem', marginBottom: '.5rem', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.1))' }}>🦷</div>

@@ -1,12 +1,4 @@
-USE master;
-GO
-
--- Create database if it does not exist
-IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'DentalClinicSystem')
-BEGIN
-    CREATE DATABASE DentalClinicSystem1;
-    PRINT 'Database DentalClinicSystem created.';
-END
+CREATE DATABASE DentalClinicSystem1;
 GO
 
 USE DentalClinicSystem1;
