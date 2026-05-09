@@ -118,19 +118,6 @@ Patients ──< Invoices      ──< Payments
 
 ---
 
-## ⚙️ Installation & Setup
-
-### Prerequisites
-
-Make sure the following are installed on your machine:
-
-- [Node.js](https://nodejs.org/) v18 or higher
-- [Microsoft SQL Server](https://www.microsoft.com/en-us/sql-server) 2019 or higher
-- [SQL Server Management Studio (SSMS)](https://learn.microsoft.com/en-us/sql/ssms/download-sql-server-management-studio-ssms) *(recommended)*
-- npm (comes with Node.js)
-
----
-
 ### 1️⃣ Clone the Repository
 
 ```bash
