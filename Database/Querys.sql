@@ -114,16 +114,6 @@ LEFT JOIN Payment p ON i.Invoice_ID = p.Invoice_ID
 GROUP BY i.Invoice_ID, i.Final_Amount;
 
 
--- Which appointments are not completed yet?
-SELECT 
-    CONCAT(p.First_Name, ' ', p.Last_Name) AS Patient_Name,
-    a.AppointmentDate,
-    a.Status
-FROM Appointment a
-JOIN Patient p ON a.Patient_ID = p.Patient_ID
-WHERE a.Status <> 'Completed';
-
-
 -- How many patients are there in each city?
 SELECT 
     CAST(Address AS VARCHAR(255)) AS Address,
