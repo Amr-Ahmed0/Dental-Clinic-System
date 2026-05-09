@@ -1,102 +1,94 @@
--- ============================================================
---  Dental Clinic — Professional Seed Data (with Auth & Roles)
--- ============================================================
-USE DentalClinicSystem;
-GO
-
--- 2. CREATE SYSTEM USERS (Password for all is: 123456)
--- Hash: a3c0bcb373ed21bb0aa75fd0d9868f75c29673722b9a2f5f073fbd1f4d736d36
--- Note: Real apps should hash uniquely. These are placeholders.
-IF NOT EXISTS (SELECT 1 FROM SystemUser WHERE Email = 'admin@dental.com')
+IF NOT EXISTS (SELECT 1 FROM dbo.Doctors)
 BEGIN
-    INSERT INTO SystemUser (Name, Email, Password_Hash, Role, Phone)
-    VALUES ('System Admin', 'admin@dental.com', '12345678', 'admin', '01000000000');
-END
-
-IF NOT EXISTS (SELECT 1 FROM SystemUser WHERE Email = 'staff@dental.com')
-BEGIN
-    INSERT INTO SystemUser (Name, Email, Password_Hash, Role, Phone)
-    VALUES ('Amr Receptionist', 'staff@dental.com', '12345678', 'receptionist', '01234567890');
-END
-
-IF NOT EXISTS (SELECT 1 FROM SystemUser WHERE Email = 'doctor@dental.com')
-BEGIN
-    INSERT INTO SystemUser (Name, Email, Password_Hash, Role, Phone)
-    VALUES ('Dr. Ali Ahmed', 'doctor@dental.com', '12345678', 'doctor', '01111111111');
-END
-
-IF NOT EXISTS (SELECT 1 FROM SystemUser WHERE Email = 'patient@dental.com')
-BEGIN
-    INSERT INTO SystemUser (Name, Email, Password_Hash, Role, Phone)
-    VALUES ('Amr Patient', 'patient@dental.com', '12345678', 'patient', '01040203369');
+    INSERT INTO dbo.Doctors (Name, Specialty, Phone, Email, WorkingHours)
+    VALUES
+    (N'Dr. Sarah Johnson', N'General Dentistry', N'555-0101', N'sarah@clinic.com', N'Mon-Fri 09:00-17:00'),
+    (N'Dr. Michael Chen', N'Orthodontics', N'555-0102', N'michael@clinic.com', N'Mon-Thu 10:00-18:00'),
+    (N'Dr. Emily Davis', N'Periodontics', N'555-0103', N'emily@clinic.com', N'Tue-Sat 08:00-16:00');
 END
 GO
 
--- 3. LINK USERS TO ROLE TABLES
--- Receptionist
-IF NOT EXISTS (SELECT 1 FROM Receptionist WHERE Email = 'staff@dental.com')
+IF NOT EXISTS (SELECT 1 FROM dbo.Users)
 BEGIN
-    INSERT INTO Receptionist (User_ID, Name, Email, Phone)
-    SELECT User_ID, Name, Email, Phone FROM SystemUser WHERE Email = 'staff@dental.com';
-END
-
--- Doctor
-IF NOT EXISTS (SELECT 1 FROM Doctor WHERE Email = 'doctor@dental.com')
-BEGIN
-    INSERT INTO Doctor (User_ID, Name, Specialty, Email, Phone, WorkingHours)
-    SELECT User_ID, Name, 'General Dentist', Email, Phone, 'Sun-Thu 09:00-17:00' 
-    FROM SystemUser WHERE Email = 'doctor@dental.com';
-END
-
--- Patient
-IF NOT EXISTS (SELECT 1 FROM Patient WHERE Email = 'patient@dental.com')
-BEGIN
-    INSERT INTO Patient (User_ID, First_Name, Last_Name, Email, Phone, Gender, DateOfBirth)
-    SELECT User_ID, 'Amr', 'Patient', Email, Phone, 'Male', '1995-01-01'
-    FROM SystemUser WHERE Email = 'patient@dental.com';
+    INSERT INTO dbo.Users (Name, Email, Password, Role, Phone)
+    VALUES
+    (N'Admin User',       N'admin@clinic.com',  N'admin123',   N'receptionist', N'555-0001'),
+    (N'Dr. Sarah Johnson',N'sarah@clinic.com',  N'doctor123',  N'doctor',       N'555-0101'),
+    (N'John Smith',       N'john@email.com',    N'patient123', N'patient',      N'555-1001');
 END
 GO
 
--- 4. ADD SAMPLE DOCTORS
-IF NOT EXISTS (SELECT 1 FROM Doctor WHERE Email = 'laila@dental.com')
+IF NOT EXISTS (SELECT 1 FROM dbo.Patients)
 BEGIN
-    INSERT INTO Doctor (Name, Specialty, Phone, Email, WorkingHours) VALUES
-    ('Dr. Laila Khaled',  'Orthodontist', '01198765432', 'laila@dental.com', 'Mon-Fri 10:00-18:00'),
-    ('Dr. Omar Youssef',  'Oral Surgeon',  '01234567890', 'omar@dental.com',  'Sat-Wed 08:00-16:00');
-END
-
--- 5. ADD SAMPLE TREATMENTS
-IF NOT EXISTS (SELECT 1 FROM Treatment WHERE Treatment_Name = 'Teeth Cleaning')
-BEGIN
-    INSERT INTO Treatment (Treatment_Name, Description, Cost) VALUES
-    ('Teeth Cleaning',   'Professional cleaning and scaling', 150.00),
-    ('Tooth Filling',    'Composite resin filling',           200.00),
-    ('Root Canal',       'Endodontic treatment',              800.00),
-    ('Teeth Whitening',  'In-office bleaching',               500.00);
+    INSERT INTO dbo.Patients (FirstName, LastName, Gender, DateOfBirth, Phone, Email, Address, MedicalHistory, DoctorID)
+    VALUES
+    (N'John',   N'Smith',    N'Male',   '1985-03-15', N'555-1001', N'john@email.com',    N'123 Main St', N'No allergies',         (SELECT TOP 1 DoctorID FROM dbo.Doctors WHERE Name = N'Dr. Sarah Johnson')),
+    (N'Maria',  N'Garcia',   N'Female', '1990-07-22', N'555-1002', N'maria@email.com',   N'456 Oak Ave', N'Penicillin allergy',  (SELECT TOP 1 DoctorID FROM dbo.Doctors WHERE Name = N'Dr. Michael Chen')),
+    (N'Robert', N'Williams', N'Male',   '1978-11-30', N'555-1003', N'robert@email.com',  N'789 Pine Rd', N'Diabetes type 2',     (SELECT TOP 1 DoctorID FROM dbo.Doctors WHERE Name = N'Dr. Emily Davis')),
+    (N'Lisa',   N'Brown',    N'Female', '1995-01-10', N'555-1004', N'lisa@email.com',    N'321 Elm St',  N'None',                (SELECT TOP 1 DoctorID FROM dbo.Doctors WHERE Name = N'Dr. Sarah Johnson'));
 END
 GO
 
--- 6. ADD SAMPLE APPOINTMENTS (Link to the created patient and doctor)
-DECLARE @pId INT, @dId INT;
-SELECT @pId = Patient_ID FROM Patient WHERE Email = 'patient@dental.com';
-SELECT @dId = Doctor_ID FROM Doctor WHERE Email = 'doctor@dental.com';
-
-IF @pId IS NOT NULL AND @dId IS NOT NULL
+IF NOT EXISTS (SELECT 1 FROM dbo.Treatments)
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Appointment WHERE Patient_ID = @pId AND CAST(AppointmentDate AS DATE) = CAST(GETDATE() AS DATE))
-    BEGIN
-        INSERT INTO Appointment (Patient_ID, Doctor_ID, AppointmentDate, Appointment_Time, Status, Reason)
-        VALUES (@pId, @dId, CAST(GETDATE() AS DATE), '10:00 AM', 'Confirmed', 'Routine Checkup');
-        
-        INSERT INTO Appointment (Patient_ID, Doctor_ID, AppointmentDate, Appointment_Time, Status, Reason)
-        VALUES (@pId, @dId, DATEADD(DAY, 1, GETDATE()), '02:00 PM', 'Scheduled', 'Follow up cleaning');
-    END
+    INSERT INTO dbo.Treatments (Name, Description, Cost, Duration, Category)
+    VALUES
+    (N'Dental Cleaning', N'Professional teeth cleaning', 120.00, N'45 min', N'Preventive'),
+    (N'Tooth Filling',   N'Composite filling',           200.00, N'60 min', N'Restorative'),
+    (N'Root Canal',      N'Endodontic treatment',        800.00, N'90 min', N'Endodontics'),
+    (N'Teeth Whitening', N'Professional whitening',      350.00, N'60 min', N'Cosmetic');
 END
 GO
 
-PRINT '============================================================';
-PRINT '  Professional Seed Data Inserted Successfully!';
-PRINT '  Login Emails: admin@dental.com, staff@dental.com,';
-PRINT '                doctor@dental.com, patient@dental.com';
-PRINT '  Password for all: 123456 (Note: Hashes are placeholders)';
-PRINT '============================================================';
+IF NOT EXISTS (SELECT 1 FROM dbo.Appointments)
+BEGIN
+    INSERT INTO dbo.Appointments (PatientID, DoctorID, AppointmentDate, AppointmentTime, Status, Reason)
+    VALUES
+    ((SELECT TOP 1 PatientID FROM dbo.Patients WHERE Email = N'john@email.com'),
+     (SELECT TOP 1 DoctorID  FROM dbo.Doctors  WHERE Name = N'Dr. Sarah Johnson'),
+     CONVERT(date, GETDATE()), N'09:00 AM', N'Confirmed', N'Routine checkup'),
+
+    ((SELECT TOP 1 PatientID FROM dbo.Patients WHERE Email = N'maria@email.com'),
+     (SELECT TOP 1 DoctorID  FROM dbo.Doctors  WHERE Name = N'Dr. Michael Chen'),
+     DATEADD(DAY, 1, CONVERT(date, GETDATE())), N'10:30 AM', N'Scheduled', N'Braces adjustment');
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Visits)
+BEGIN
+    INSERT INTO dbo.Visits (PatientID, DoctorID, VisitDate, Diagnosis, Notes, Status)
+    VALUES
+    ((SELECT TOP 1 PatientID FROM dbo.Patients WHERE Email = N'lisa@email.com'),
+     (SELECT TOP 1 DoctorID  FROM dbo.Doctors  WHERE Name = N'Dr. Sarah Johnson'),
+     DATEADD(DAY, -1, CONVERT(date, GETDATE())), N'Mild staining', N'Whitening performed successfully.', N'Completed');
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.VisitTreatments)
+BEGIN
+    INSERT INTO dbo.VisitTreatments (VisitID, TreatmentID, Quantity)
+    VALUES
+    ((SELECT TOP 1 VisitID FROM dbo.Visits ORDER BY VisitID DESC),
+     (SELECT TOP 1 TreatmentID FROM dbo.Treatments WHERE Name = N'Teeth Whitening'),
+     1);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Invoices)
+BEGIN
+    INSERT INTO dbo.Invoices (PatientID, TotalAmount, Discount, Status, Notes)
+    VALUES
+    ((SELECT TOP 1 PatientID FROM dbo.Patients WHERE Email = N'john@email.com'),   280.00,  0.00, N'Unpaid',  N'General visit invoice'),
+    ((SELECT TOP 1 PatientID FROM dbo.Patients WHERE Email = N'maria@email.com'), 1500.00,150.00, N'Partial', N'Orthodontic treatment plan'),
+    ((SELECT TOP 1 PatientID FROM dbo.Patients WHERE Email = N'lisa@email.com'),   350.00, 35.00, N'Paid',    N'Whitening session');
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Payments)
+BEGIN
+    INSERT INTO dbo.Payments (InvoiceID, Amount, PaymentMethod, PaymentDate, Notes)
+    VALUES
+    ((SELECT TOP 1 InvoiceID FROM dbo.Invoices i INNER JOIN dbo.Patients p ON p.PatientID = i.PatientID WHERE p.Email = N'maria@email.com'), 500.00, N'Cash',      CONVERT(date, GETDATE()), N'First installment'),
+    ((SELECT TOP 1 InvoiceID FROM dbo.Invoices i INNER JOIN dbo.Patients p ON p.PatientID = i.PatientID WHERE p.Email = N'lisa@email.com'),  315.00, N'Insurance', CONVERT(date, GETDATE()), N'Insurance covered');
+END
+GO
