@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Patient, Doctor } from '../types';
 import { Edit2, Trash2, X, Eye, EyeOff } from 'lucide-react';
+import { Permissions } from '../permissions';
 
 interface Props {
   patients: Patient[];
@@ -9,9 +10,10 @@ interface Props {
   onUpdate: (p: Patient) => void;
   onDelete: (id: number) => void;
   searchQuery: string;
+  perms: Permissions;
 }
 
-export default function Patients({ patients, doctors, onAdd, onUpdate, onDelete, searchQuery }: Props) {
+export default function Patients({ patients, doctors, onAdd, onUpdate, onDelete, searchQuery, perms }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [firstName, setFirstName] = useState('');
@@ -65,9 +67,11 @@ export default function Patients({ patients, doctors, onAdd, onUpdate, onDelete,
           <span style={{ fontSize: '.85rem', color: 'var(--gray-400)', alignSelf: 'center' }}>
             {filtered.length} patient{filtered.length !== 1 ? 's' : ''}
           </span>
-          <button className="add-btn" onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}>
-            {showForm ? <><X size={16} style={{ verticalAlign: 'middle' }} /> Close</> : '+ Add Patient'}
-          </button>
+          {perms.patients.add && (
+            <button className="add-btn" onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}>
+              {showForm ? <><X size={16} style={{ verticalAlign: 'middle' }} /> Close</> : '+ Add Patient'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -207,12 +211,16 @@ export default function Patients({ patients, doctors, onAdd, onUpdate, onDelete,
                       <button className="tbl-btn" onClick={() => setViewId(viewId === p.id ? null : p.id)} title="View">
                         {viewId === p.id ? <EyeOff size={13} /> : <Eye size={13} />}
                       </button>
-                      <button className="tbl-btn" onClick={() => openEdit(p)} title="Edit">
-                        <Edit2 size={13} />
-                      </button>
-                      <button className="tbl-btn danger" onClick={() => onDelete(p.id)} title="Delete">
-                        <Trash2 size={13} />
-                      </button>
+                      {perms.patients.edit && (
+                        <button className="tbl-btn" onClick={() => openEdit(p)} title="Edit">
+                          <Edit2 size={13} />
+                        </button>
+                      )}
+                      {perms.patients.delete && (
+                        <button className="tbl-btn danger" onClick={() => onDelete(p.id)} title="Delete">
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

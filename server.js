@@ -184,7 +184,11 @@ app.get('/api/dashboard/appointments-with-names', async (req, res) => {
 app.get('/api/patients', async (req, res) => {
   try {
     const pool = await sql.connect(dbConfig);
-    const result = await pool.request().query('SELECT * FROM Patients');
+    const result = await pool.request().query(`
+      SELECT p.*, d.Name as DoctorName
+      FROM Patients p
+      LEFT JOIN Doctors d ON p.DoctorID = d.DoctorID
+    `);
     res.json({ data: result.recordset });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -194,7 +198,7 @@ app.get('/api/patients', async (req, res) => {
 app.post('/api/patients', async (req, res) => {
   try {
     const pool = await sql.connect(dbConfig);
-    const { firstName, lastName, gender, dateOfBirth, phone, email, address, medicalHistory } = req.body;
+    const { firstName, lastName, gender, dateOfBirth, phone, email, address, medicalHistory, assignedDoctor } = req.body;
     
     const result = await pool.request()
       .input('firstName', sql.NVarChar, firstName)
@@ -205,10 +209,17 @@ app.post('/api/patients', async (req, res) => {
       .input('email', sql.NVarChar, email)
       .input('address', sql.NVarChar, address)
       .input('medicalHistory', sql.NVarChar, medicalHistory)
+      .input('assignedDoctor', sql.NVarChar, assignedDoctor)
       .query(`
-        INSERT INTO Patients (FirstName, LastName, Gender, DateOfBirth, Phone, Email, Address, MedicalHistory)
+        INSERT INTO Patients (FirstName, LastName, Gender, DateOfBirth, Phone, Email, Address, MedicalHistory, DoctorID)
         OUTPUT INSERTED.*
-        VALUES (@firstName, @lastName, @gender, @dob, @phone, @email, @address, @medicalHistory)
+        VALUES (
+          @firstName, @lastName, @gender, @dob, @phone, @email, @address, @medicalHistory,
+          CASE 
+            WHEN @assignedDoctor IS NULL OR @assignedDoctor = '' THEN NULL
+            ELSE (SELECT TOP 1 DoctorID FROM Doctors WHERE Name = @assignedDoctor)
+          END
+        )
       `);
     
     res.json({ data: result.recordset[0] });
@@ -220,7 +231,7 @@ app.post('/api/patients', async (req, res) => {
 app.put('/api/patients/:id', async (req, res) => {
   try {
     const pool = await sql.connect(dbConfig);
-    const { firstName, lastName, gender, dateOfBirth, phone, email, address, medicalHistory } = req.body;
+    const { firstName, lastName, gender, dateOfBirth, phone, email, address, medicalHistory, assignedDoctor } = req.body;
     
     await pool.request()
       .input('id', sql.Int, req.params.id)
@@ -232,11 +243,21 @@ app.put('/api/patients/:id', async (req, res) => {
       .input('email', sql.NVarChar, email)
       .input('address', sql.NVarChar, address)
       .input('medicalHistory', sql.NVarChar, medicalHistory)
+      .input('assignedDoctor', sql.NVarChar, assignedDoctor)
       .query(`
         UPDATE Patients SET
-          FirstName = @firstName, LastName = @lastName, Gender = @gender,
-          DateOfBirth = @dob, Phone = @phone, Email = @email,
-          Address = @address, MedicalHistory = @medicalHistory
+          FirstName = @firstName,
+          LastName = @lastName,
+          Gender = @gender,
+          DateOfBirth = @dob,
+          Phone = @phone,
+          Email = @email,
+          Address = @address,
+          MedicalHistory = @medicalHistory,
+          DoctorID = CASE 
+            WHEN @assignedDoctor IS NULL OR @assignedDoctor = '' THEN NULL
+            ELSE (SELECT TOP 1 DoctorID FROM Doctors WHERE Name = @assignedDoctor)
+          END
         WHERE PatientID = @id
       `);
     

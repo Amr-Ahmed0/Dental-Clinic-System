@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --primary: #2563eb;
   --primary-dark: #1d4ed8;
@@ -1070,4 +1072,11 @@ body {
 /* Spinner */
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Loading bar */
+@keyframes loadingBar {
+  0% { width: 0; left: 0; }
+  50% { width: 60%; }
+  100% { width: 0; left: 100%; }
 }

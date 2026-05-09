@@ -1,7 +1,7 @@
 import { User, Patient, Doctor, Appointment, Visit, Treatment, Payment } from '../types';
 import { Page } from '../types';
 import { Mail, Phone, Calendar, Shield, Clock } from 'lucide-react';
-import { getDisplayName, getInitials } from '../displayName';
+import { getDisplayName, getInitials } from '../utils/displayName';
 
 interface Props {
   user: User;

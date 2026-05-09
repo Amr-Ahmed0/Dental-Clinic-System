@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Appointment, Patient, Doctor } from '../types';
 import { Trash2, X, Calendar } from 'lucide-react';
+import { Permissions } from '../permissions';
 
 interface Props {
   appointments: Appointment[];
@@ -10,6 +11,10 @@ interface Props {
   onDelete: (id: number) => void;
   onUpdateStatus: (id: number, status: Appointment['status']) => void;
   searchQuery: string;
+  perms: Permissions;
+  currentDoctorId?: number | null;
+  currentPatientId?: number | null;
+  currentPatientName?: string;
 }
 
 function getStatusBadgeClass(status: string) {
@@ -22,7 +27,7 @@ function getStatusBadgeClass(status: string) {
   return 'badge badge-scheduled';
 }
 
-export default function Appointments({ appointments, patients, doctors, onAdd, onDelete, onUpdateStatus, searchQuery }: Props) {
+export default function Appointments({ appointments, patients, doctors, onAdd, onDelete, onUpdateStatus, searchQuery, perms, currentDoctorId, currentPatientId, currentPatientName }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [patientId, setPatientId] = useState('');
   const [doctorId, setDoctorId] = useState('');
@@ -31,6 +36,16 @@ export default function Appointments({ appointments, patients, doctors, onAdd, o
   const [status, setStatus] = useState<Appointment['status']>('Scheduled');
   const [reason, setReason] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+
+  // Auto-fill doctor when logged in as doctor
+  useEffect(() => {
+    if (currentDoctorId && !doctorId) setDoctorId(String(currentDoctorId));
+  }, [currentDoctorId, doctorId]);
+
+  // Auto-fill patient when logged in as patient
+  useEffect(() => {
+    if (currentPatientId && !patientId) setPatientId(String(currentPatientId));
+  }, [currentPatientId, patientId]);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -42,19 +57,22 @@ export default function Appointments({ appointments, patients, doctors, onAdd, o
   }).sort((a, b) => b.date.localeCompare(a.date) || a.time.localeCompare(b.time));
 
   const resetForm = () => {
-    setPatientId(''); setDoctorId(''); setDate(''); setTime(''); setStatus('Scheduled'); setReason('');
+    setDate(''); setTime(''); setStatus('Scheduled'); setReason('');
+    if (currentDoctorId) setDoctorId(String(currentDoctorId)); else setDoctorId('');
+    if (linkedPatient) setPatientId(String(linkedPatient.id));
+    else if (!isPatientPortal) setPatientId('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const patient = patients.find(p => p.id === Number(patientId));
+    const patient = linkedPatient ?? patients.find(p => p.id === Number(patientId));
     const doctor = doctors.find(d => d.id === Number(doctorId));
-    if (!patient || !doctor) return;
+    if (!doctor) return;
 
     const newAppt: Appointment = {
       id: Date.now(),
-      patientId: patient.id,
-      patientName: `${patient.firstName} ${patient.lastName}`,
+      patientId: patient?.id ?? 0,
+      patientName: patient ? `${patient.firstName} ${patient.lastName}` : patientDisplayName,
       doctorId: doctor.id,
       doctorName: doctor.name,
       date, time, status, reason,
@@ -67,13 +85,24 @@ export default function Appointments({ appointments, patients, doctors, onAdd, o
   const todayCount = appointments.filter(a => a.date === today).length;
   const upcomingCount = appointments.filter(a => a.date >= today && (a.status === 'Scheduled' || a.status === 'Confirmed')).length;
 
+  const isDoctorLocked = !!currentDoctorId;
+  const isPatientPortal = perms.appointments.add && !perms.appointments.edit && !perms.appointments.delete;
+  const isPatientLocked = isPatientPortal;
+  const linkedPatient = currentPatientId ? patients.find(x => x.id === currentPatientId) : null;
+  const patientDisplayName = linkedPatient
+    ? `${linkedPatient.firstName} ${linkedPatient.lastName}`
+    : (currentPatientName || 'Current Patient');
+  const patientBookingBlocked = isPatientPortal && !patientDisplayName.trim();
+
   return (
     <div className="page-animate">
       <div className="page-header">
-        <h2>Appointments</h2>
-        <button className="add-btn" onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}>
-          {showForm ? <span><X size={16} style={{ verticalAlign: 'middle' }} /> Close</span> : '+ New Appointment'}
-        </button>
+        <h2>{perms.appointments.viewAll ? 'Appointments' : 'My Appointments'}</h2>
+        {perms.appointments.add && (
+          <button className="add-btn" onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}>
+            {showForm ? <><X size={16} style={{ verticalAlign: 'middle' }} /> Close</> : isPatientLocked ? '+ Book Appointment' : '+ New Appointment'}
+          </button>
+        )}
       </div>
 
       {/* Summary */}
@@ -110,21 +139,58 @@ export default function Appointments({ appointments, patients, doctors, onAdd, o
       {showForm && (
         <div className="form-container">
           <h3 className="form-title">Book New Appointment</h3>
+          {patientBookingBlocked && (
+            <div style={{
+              marginBottom: '1rem', padding: '.85rem 1rem', borderRadius: '.5rem',
+              background: '#fee2e2', border: '1px solid #fecaca', color: '#991b1b', fontSize: '.85rem',
+            }}>
+              Your patient account is not linked to a patient record yet. Please contact reception to activate online booking for your profile.
+            </div>
+          )}
           <form onSubmit={handleSubmit}>
             <div className="form-grid">
               <div className="form-field">
                 <label>Patient *</label>
-                <select required={true} value={patientId} onChange={(e) => setPatientId(e.target.value)}>
-                  <option value="">Select patient</option>
-                  {patients.map((p) => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
-                </select>
+                {isPatientLocked ? (
+                  <>
+                    <input
+                      type="text"
+                      readOnly
+                      required
+                      value={patientDisplayName}
+                      style={{ background: 'var(--gray-100)', cursor: 'not-allowed' }}
+                    />
+                    <p style={{ fontSize: '.7rem', color: 'var(--gray-400)', marginTop: '.15rem' }}>
+                      Auto-filled from your account — cannot be changed
+                    </p>
+                  </>
+                ) : (
+                  <select required value={patientId} onChange={e => setPatientId(e.target.value)}>
+                    <option value="">Select patient</option>
+                    {patients.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
+                  </select>
+                )}
               </div>
               <div className="form-field">
                 <label>Doctor *</label>
-                <select required value={doctorId} onChange={e => setDoctorId(e.target.value)}>
-                  <option value="">Select doctor</option>
-                  {doctors.map(d => <option key={d.id} value={d.id}>{d.name} — {d.specialty}</option>)}
-                </select>
+                {isDoctorLocked ? (
+                  <>
+                    <input
+                      type="text"
+                      readOnly
+                      value={doctors.find(d => d.id === currentDoctorId)?.name || ''}
+                      style={{ background: 'var(--gray-100)', cursor: 'not-allowed' }}
+                    />
+                    <p style={{ fontSize: '.7rem', color: 'var(--gray-400)', marginTop: '.15rem' }}>
+                      Auto-assigned to you
+                    </p>
+                  </>
+                ) : (
+                  <select required value={doctorId} onChange={e => setDoctorId(e.target.value)}>
+                    <option value="">Select doctor</option>
+                    {doctors.map(d => <option key={d.id} value={d.id}>{d.name} — {d.specialty}</option>)}
+                  </select>
+                )}
               </div>
               <div className="form-field">
                 <label>Date *</label>
@@ -134,23 +200,27 @@ export default function Appointments({ appointments, patients, doctors, onAdd, o
                 <label>Time *</label>
                 <input type="text" placeholder="e.g. 09:00 AM" required value={time} onChange={e => setTime(e.target.value)} />
               </div>
-              <div className="form-field">
-                <label>Status</label>
-                <select value={status} onChange={e => setStatus(e.target.value as Appointment['status'])}>
-                  <option value="Scheduled">Scheduled</option>
-                  <option value="Confirmed">Confirmed</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Cancelled">Cancelled</option>
-                  <option value="No-Show">No-Show</option>
-                </select>
-              </div>
+              {isPatientLocked ? (
+                <input type="hidden" value="Scheduled" />
+              ) : (
+                <div className="form-field">
+                  <label>Status</label>
+                  <select value={status} onChange={e => setStatus(e.target.value as Appointment['status'])}>
+                    <option value="Scheduled">Scheduled</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Cancelled">Cancelled</option>
+                    <option value="No-Show">No-Show</option>
+                  </select>
+                </div>
+              )}
               <div className="form-field full-width">
                 <label>Reason for Visit</label>
                 <textarea placeholder="Reason for visit..." value={reason} onChange={e => setReason(e.target.value)} />
               </div>
             </div>
             <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap' }}>
-              <button type="submit" className="submit-btn">Book Appointment</button>
+              <button type="submit" className="submit-btn" disabled={patientBookingBlocked} style={patientBookingBlocked ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}>Book Appointment</button>
               <button type="button" className="submit-btn" style={{ background: 'var(--gray-400)' }} onClick={() => { setShowForm(false); resetForm(); }}>Cancel</button>
             </div>
           </form>
@@ -174,7 +244,7 @@ export default function Appointments({ appointments, patients, doctors, onAdd, o
       <div className="table-container">
         <table>
           <thead>
-            <tr><th>ID</th><th>Patient</th><th>Doctor</th><th>Date</th><th>Time</th><th>Status</th><th>Reason</th><th>Actions</th></tr>
+            <tr><th>Patient</th><th>Doctor</th><th>Date</th><th>Time</th><th>Status</th><th>Reason</th>{(perms.appointments.delete || perms.appointments.edit) && <th>Actions</th>}</tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
@@ -182,7 +252,7 @@ export default function Appointments({ appointments, patients, doctors, onAdd, o
             ) : (
               filtered.map(a => (
                 <tr key={a.id} style={a.date === today ? { background: 'rgba(37,99,235,.04)' } : undefined}>
-                  <td style={{ color: 'var(--gray-400)', fontSize: '.8rem' }}>#{a.id}</td>
+                  {/* <td style={{ color: 'var(--gray-400)', fontSize: '.8rem' }}>#{a.id}</td> */}
                   <td style={{ fontWeight: 600 }}>{a.patientName}</td>
                   <td>{a.doctorName}</td>
                   <td>
@@ -192,25 +262,33 @@ export default function Appointments({ appointments, patients, doctors, onAdd, o
                   </td>
                   <td>{a.time}</td>
                   <td>
-                    <select
-                      className={getStatusBadgeClass(a.status)}
-                      value={a.status}
-                      onChange={e => onUpdateStatus(a.id, e.target.value as Appointment['status'])}
-                      style={{ border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '.75rem', padding: '.2rem .4rem', borderRadius: '9999px', fontFamily: 'inherit' }}
-                    >
-                      <option value="Scheduled">Scheduled</option>
-                      <option value="Confirmed">Confirmed</option>
-                      <option value="Completed">Completed</option>
-                      <option value="Cancelled">Cancelled</option>
-                      <option value="No-Show">No-Show</option>
-                    </select>
+                    {perms.appointments.edit ? (
+                      <select
+                        className={getStatusBadgeClass(a.status)}
+                        value={a.status}
+                        onChange={e => onUpdateStatus(a.id, e.target.value as Appointment['status'])}
+                        style={{ border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '.75rem', padding: '.2rem .4rem', borderRadius: '9999px', fontFamily: 'inherit' }}
+                      >
+                        <option value="Scheduled">Scheduled</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                        <option value="No-Show">No-Show</option>
+                      </select>
+                    ) : (
+                      <span className={getStatusBadgeClass(a.status)}>{a.status}</span>
+                    )}
                   </td>
                   <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.reason || '—'}</td>
-                  <td>
-                    <button className="tbl-btn danger" onClick={() => onDelete(a.id)} title="Delete">
-                      <Trash2 size={13} />
-                    </button>
-                  </td>
+                  {(perms.appointments.delete || perms.appointments.edit) && (
+                    <td>
+                      {perms.appointments.delete && (
+                        <button className="tbl-btn danger" onClick={() => onDelete(a.id)} title="Delete">
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))
             )}

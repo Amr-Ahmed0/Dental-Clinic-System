@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Doctor } from '../types';
 import { Edit2, Trash2, X, Stethoscope } from 'lucide-react';
+import { Permissions } from '../permissions';
 
 interface Props {
   doctors: Doctor[];
@@ -8,9 +9,10 @@ interface Props {
   onUpdate: (d: Doctor) => void;
   onDelete: (id: number) => void;
   searchQuery: string;
+  perms: Permissions;
 }
 
-export default function Doctors({ doctors, onAdd, onUpdate, onDelete, searchQuery }: Props) {
+export default function Doctors({ doctors, onAdd, onUpdate, onDelete, searchQuery, perms }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [name, setName] = useState('');
@@ -56,9 +58,11 @@ export default function Doctors({ doctors, onAdd, onUpdate, onDelete, searchQuer
     <div className="page-animate">
       <div className="page-header">
         <h2>Doctors</h2>
-        <button className="add-btn" onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}>
-          {showForm ? <><X size={16} style={{ verticalAlign: 'middle' }} /> Close</> : '+ Add Doctor'}
-        </button>
+        {perms.doctors.add && (
+          <button className="add-btn" onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}>
+            {showForm ? <><X size={16} style={{ verticalAlign: 'middle' }} /> Close</> : '+ Add Doctor'}
+          </button>
+        )}
       </div>
 
       {showForm && (
@@ -129,12 +133,16 @@ export default function Doctors({ doctors, onAdd, onUpdate, onDelete, searchQuer
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '.25rem' }}>
-                    <button className="tbl-btn" onClick={() => openEdit(d)} title="Edit" style={{ background: 'rgba(255,255,255,.7)' }}>
-                      <Edit2 size={13} />
-                    </button>
-                    <button className="tbl-btn danger" onClick={() => onDelete(d.id)} title="Delete" style={{ background: 'rgba(255,255,255,.7)' }}>
-                      <Trash2 size={13} />
-                    </button>
+                    {perms.doctors.edit && (
+                      <button className="tbl-btn" onClick={() => openEdit(d)} title="Edit" style={{ background: 'rgba(255,255,255,.7)' }}>
+                        <Edit2 size={13} />
+                      </button>
+                    )}
+                    {perms.doctors.delete && (
+                      <button className="tbl-btn danger" onClick={() => onDelete(d.id)} title="Delete" style={{ background: 'rgba(255,255,255,.7)' }}>
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '.5rem' }}>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Treatment } from '../types';
 import { Pill, Edit2, Trash2, Search, X } from 'lucide-react';
+import { Permissions } from '../permissions';
 
 interface Props {
   treatments: Treatment[];
@@ -8,11 +9,12 @@ interface Props {
   onUpdate: (t: Treatment) => void;
   onDelete: (id: number) => void;
   searchQuery: string;
+  perms: Permissions;
 }
 
 const categories = ['Preventive', 'Restorative', 'Endodontics', 'Cosmetic', 'Orthodontics', 'Periodontics', 'Oral Surgery', 'Diagnostic'];
 
-export default function Treatments({ treatments, onAdd, onUpdate, onDelete, searchQuery }: Props) {
+export default function Treatments({ treatments, onAdd, onUpdate, onDelete, searchQuery, perms }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [name, setName] = useState('');
@@ -67,9 +69,11 @@ export default function Treatments({ treatments, onAdd, onUpdate, onDelete, sear
     <div className="page-animate">
       <div className="page-header">
         <h2>Treatments</h2>
-        <button className="add-btn" onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}>
-          {showForm ? <><X size={16} style={{ verticalAlign: 'middle' }} /> Close</> : '+ Add Treatment'}
-        </button>
+        {perms.treatments.add && (
+          <button className="add-btn" onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}>
+            {showForm ? <><X size={16} style={{ verticalAlign: 'middle' }} /> Close</> : '+ Add Treatment'}
+          </button>
+        )}
       </div>
 
       {/* Category filter pills */}
@@ -155,12 +159,12 @@ export default function Treatments({ treatments, onAdd, onUpdate, onDelete, sear
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '.25rem' }}>
-                  <button className="tbl-btn" onClick={() => openEdit(t)} title="Edit">
-                    <Edit2 size={13} />
-                  </button>
-                  <button className="tbl-btn danger" onClick={() => onDelete(t.id)} title="Delete">
-                    <Trash2 size={13} />
-                  </button>
+                  {perms.treatments.edit && (
+                    <button className="tbl-btn" onClick={() => openEdit(t)} title="Edit"><Edit2 size={13} /></button>
+                  )}
+                  {perms.treatments.delete && (
+                    <button className="tbl-btn danger" onClick={() => onDelete(t.id)} title="Delete"><Trash2 size={13} /></button>
+                  )}
                 </div>
               </div>
               {t.description && (

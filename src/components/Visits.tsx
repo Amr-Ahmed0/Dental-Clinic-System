@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Visit, Patient, Doctor, Treatment } from '../types';
 import { ClipboardList, ChevronDown, ChevronUp, Pill, X } from 'lucide-react';
+import { Permissions } from '../permissions';
 
 interface Props {
   visits: Visit[];
@@ -11,6 +12,8 @@ interface Props {
   onDelete: (id: number) => void;
   onUpdateStatus: (id: number, status: Visit['status']) => void;
   searchQuery: string;
+  perms: Permissions;
+  currentDoctorId?: number | null;
 }
 
 function getVisitBadgeClass(status: string) {
@@ -20,10 +23,15 @@ function getVisitBadgeClass(status: string) {
   return 'badge badge-scheduled';
 }
 
-export default function Visits({ visits, patients, doctors, treatments, onAdd, onDelete, onUpdateStatus, searchQuery }: Props) {
+export default function Visits({ visits, patients, doctors, treatments, onAdd, onDelete, onUpdateStatus, searchQuery, perms, currentDoctorId }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [patientId, setPatientId] = useState('');
   const [doctorId, setDoctorId] = useState('');
+
+  // Auto-fill doctor when logged in as doctor
+  useEffect(() => {
+    if (currentDoctorId && !doctorId) setDoctorId(String(currentDoctorId));
+  }, [currentDoctorId, doctorId]);
   const [date, setDate] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
   const [notes, setNotes] = useState('');
@@ -37,8 +45,10 @@ export default function Visits({ visits, patients, doctors, treatments, onAdd, o
   });
 
   const resetForm = () => {
-    setPatientId(''); setDoctorId(''); setDate(''); setDiagnosis('');
+    setPatientId(''); setDate(''); setDiagnosis('');
     setNotes(''); setSelectedTreatments([]); setStatus('In Progress');
+    if (currentDoctorId) setDoctorId(String(currentDoctorId));
+    else setDoctorId('');
   };
 
   const toggleTreatment = (id: number) => {
@@ -79,9 +89,11 @@ export default function Visits({ visits, patients, doctors, treatments, onAdd, o
     <div className="page-animate">
       <div className="page-header">
         <h2>Visits</h2>
-        <button className="add-btn" onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}>
-          {showForm ? <><X size={16} style={{ verticalAlign: 'middle' }} /> Close</> : '+ Record Visit'}
-        </button>
+        {perms.visits.add && (
+          <button className="add-btn" onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}>
+            {showForm ? <><X size={16} style={{ verticalAlign: 'middle' }} /> Close</> : '+ Record Visit'}
+          </button>
+        )}
       </div>
 
       {/* Summary cards */}
@@ -123,10 +135,17 @@ export default function Visits({ visits, patients, doctors, treatments, onAdd, o
               </div>
               <div className="form-field">
                 <label>Doctor *</label>
-                <select required value={doctorId} onChange={e => setDoctorId(e.target.value)}>
-                  <option value="">Select doctor</option>
-                  {doctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
+                {currentDoctorId ? (
+                  <>
+                    <input type="text" readOnly value={doctors.find(d => d.id === currentDoctorId)?.name || ''} style={{ background: 'var(--gray-100)', cursor: 'not-allowed' }} />
+                    <p style={{ fontSize: '.7rem', color: 'var(--gray-400)', marginTop: '.15rem' }}>Auto-assigned to you</p>
+                  </>
+                ) : (
+                  <select required value={doctorId} onChange={e => setDoctorId(e.target.value)}>
+                    <option value="">Select doctor</option>
+                    {doctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
+                )}
               </div>
               <div className="form-field">
                 <label>Date *</label>
@@ -277,7 +296,9 @@ export default function Visits({ visits, patients, doctors, treatments, onAdd, o
                         <option value="Completed">Completed</option>
                         <option value="Follow-Up Required">Follow-Up Required</option>
                       </select>
-                      <button className="tbl-btn danger" onClick={() => onDelete(v.id)}>Delete Visit</button>
+                      {perms.visits.delete && (
+                        <button className="tbl-btn danger" onClick={() => onDelete(v.id)}>Delete Visit</button>
+                      )}
                     </div>
                   </div>
                 )}
